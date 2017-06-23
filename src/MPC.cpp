@@ -57,14 +57,15 @@ class FG_eval {
       fg[0] += CppAD::pow(vars[epsi_start + i], 2);
       fg[0] += CppAD::pow(vars[v_start + i] - ref_v, 2);
     }
+
     // Minimize actuator use
-    for (int i = 0; i < N - 1; i++) {
+    for (int i = 0; i < N - 2; i++) {
       fg[0] += CppAD::pow(vars[delta_start + i], 2);
       fg[0] += CppAD::pow(vars[a_start + i], 2);
     }
 
     // Minimize actuator change
-    for (int i = 0; i < N - 2; i++) {
+    for (int i = 0; i < N - 3; i++) {
       fg[0] += CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i] , 2);
       fg[0] += CppAD::pow(vars[a_start + i + 1] - vars[a_start + i] , 2);
     }
@@ -82,7 +83,7 @@ class FG_eval {
     fg[1 + epsi_start] = vars[epsi_start];
 
     // The rest of the constraints
-    for (int i = 0; i < N - 1; i++) {
+    for (int i = 0; i < N - 3; i++) {
       AD<double> x0 = vars[x_start + i];
       AD<double> y0 = vars[y_start + i];
       AD<double> psi0 = vars[psi_start + i];
@@ -147,24 +148,65 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // Initial value of the independent variables.
   // SHOULD BE 0 besides initial state.
   Dvector vars(n_vars);
-  for (int i = 0; i < n_vars; i++) {
+  for (i = 0; i < n_vars; i++) {
     vars[i] = 0.0;
   }
   // Initial values
-  vars[x_start] = state[0];
+  vars[x_start] = x;
+  vars[y_start] = y;
+  vars[psi_start] = psi;
+  vars[v_start] = v;
+  vars[cte_start] = cte;
+  vars[epsi_start] = epsi;
 
   Dvector vars_lowerbound(n_vars);
   Dvector vars_upperbound(n_vars);
+
+  // Set all non actuator upper and lower limits
+  // to the max negative and positive values.
+  for (i = 0; i< delta_start; i++) {
+    vars_lowerbound[i] = -1.0e19;
+    vars_upperbound[i] = 1.0e19;
+  }
+
+  double delta_range = 25.0 * 180.0 * 3.1415926;
+  for (i = delta_start; i < a_start; i++) {
+    vars_lowerbound[i] = - delta_range;
+    vars_upperbound[i] = delta_range;
+  }
+
+  // Set acceleration limit
+  double acceleration_range = 1.0;
+  for (i = a_start; i < n_vars; i++) {
+    vars_lowerbound[i] = -acceleration_range;
+    vars_upperbound[i] = acceleration_range;
+  }
+
   // TODO: Set lower and upper limits for variables.
 
   // Lower and upper limits for the constraints
   // Should be 0 besides initial state.
   Dvector constraints_lowerbound(n_constraints);
   Dvector constraints_upperbound(n_constraints);
-  for (int i = 0; i < n_constraints; i++) {
+  for (i = 0; i < n_constraints; i++) {
     constraints_lowerbound[i] = 0;
     constraints_upperbound[i] = 0;
   }
+
+  constraints_lowerbound[x_start] = x;
+  constraints_lowerbound[y_start] = y;
+  constraints_lowerbound[psi_start] = psi;
+  constraints_lowerbound[v_start] = v;
+  constraints_lowerbound[cte_start] = cte;
+  constraints_lowerbound[epsi_start] = epsi;
+
+  constraints_upperbound[x_start] = x;
+  constraints_upperbound[y_start] = y;
+  constraints_upperbound[psi_start] = psi;
+  constraints_upperbound[v_start] = v;
+  constraints_upperbound[cte_start] = cte;
+  constraints_upperbound[epsi_start] = epsi;
+
 
   // object that computes objective and constraints
   FG_eval fg_eval(coeffs);
@@ -200,12 +242,15 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
   // Cost
   auto cost = solution.obj_value;
-  std::cout << "Cost " << cost << std::endl;
 
   // TODO: Return the first actuator values. The variables can be accessed with
   // `solution.x[i]`.
   //
   // {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
   // creates a 2 element double vector.
-  return {};
+
+  return {0.0, 1.0};
+  // return {
+  //   solution.x[delta_start], solution.x[a_start]
+  // };
 }
