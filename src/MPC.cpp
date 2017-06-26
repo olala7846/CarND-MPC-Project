@@ -6,8 +6,8 @@
 using CppAD::AD;
 
 // TODO: Set the timestep length and duration
-size_t N = 25;
-double dt = 0.4;
+size_t N = 10;
+double dt = 0.5;
 
 size_t x_start = 0;
 size_t y_start = x_start + N;
@@ -16,7 +16,7 @@ size_t v_start = psi_start + N;
 size_t cte_start = v_start + N;
 size_t epsi_start = cte_start + N;
 size_t delta_start = epsi_start + N;
-size_t a_start = delta_start + N;
+size_t a_start = delta_start + N - 1;
 
 // Speed limit for cost function
 double ref_v = 40;
@@ -53,21 +53,21 @@ class FG_eval {
 
     // Cost for reference state
     for (int i = 0; i < N; i++) {
-      fg[0] += CppAD::pow(vars[cte_start + i], 2);
-      fg[0] += CppAD::pow(vars[epsi_start + i], 2);
-      fg[0] += CppAD::pow(vars[v_start + i] - ref_v, 2);
+      fg[0] += 2000 * CppAD::pow(vars[cte_start + i], 2);
+      fg[0] += 2000 * CppAD::pow(vars[epsi_start + i], 2);
+      fg[0] += 5 * CppAD::pow(vars[v_start + i] - ref_v, 2);
     }
 
     // Minimize actuator use
-    for (int i = 0; i < N - 2; i++) {
-      fg[0] += CppAD::pow(vars[delta_start + i], 2);
-      fg[0] += CppAD::pow(vars[a_start + i], 2);
+    for (int i = 0; i < N - 1; i++) {
+      fg[0] += 5 * CppAD::pow(vars[delta_start + i], 2);
+      fg[0] += 5 * CppAD::pow(vars[a_start + i], 2);
     }
 
     // Minimize actuator change
-    for (int i = 0; i < N - 3; i++) {
-      fg[0] += CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i] , 2);
-      fg[0] += CppAD::pow(vars[a_start + i + 1] - vars[a_start + i] , 2);
+    for (int i = 0; i < N - 2; i++) {
+      fg[0] += 200 * CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i] , 2);
+      fg[0] += 100 * CppAD::pow(vars[a_start + i + 1] - vars[a_start + i] , 2);
     }
 
     //
@@ -83,37 +83,36 @@ class FG_eval {
     fg[1 + epsi_start] = vars[epsi_start];
 
     // The rest of the constraints
-    for (int i = 0; i < N - 3; i++) {
-      AD<double> x0 = vars[x_start + i];
-      AD<double> y0 = vars[y_start + i];
-      AD<double> psi0 = vars[psi_start + i];
-      AD<double> v0 = vars[v_start + i];
-      AD<double> cte0 = vars[cte_start + i];
-      AD<double> epsi0 = vars[epsi_start + i];
+    for (size_t t = 1; t < N; t++) {
+      AD<double> x0 = vars[x_start + t - 1];
+      AD<double> y0 = vars[y_start + t - 1];
+      AD<double> psi0 = vars[psi_start + t - 1];
+      AD<double> v0 = vars[v_start + t - 1];
+      AD<double> cte0 = vars[cte_start + t - 1];
+      AD<double> epsi0 = vars[epsi_start + t - 1];
 
-      AD<double> x1 = vars[x_start + i + 1];
-      AD<double> y1 = vars[y_start + i + 1];
-      AD<double> psi1 = vars[psi_start + i + 1];
-      AD<double> v1 = vars[v_start + i + 1];
-      AD<double> cte1 = vars[cte_start + i + 1];
-      AD<double> epsi1 = vars[epsi_start + i + 1];
+      AD<double> x1 = vars[x_start + t];
+      AD<double> y1 = vars[y_start + t];
+      AD<double> psi1 = vars[psi_start + t];
+      AD<double> v1 = vars[v_start + t];
+      AD<double> cte1 = vars[cte_start + t];
+      AD<double> epsi1 = vars[epsi_start + t];
 
-      AD<double> delta0 = vars[delta_start + i];
-      AD<double> a0 = vars[a_start + i];
+      AD<double> delta0 = vars[delta_start + t - 1];
+      AD<double> a0 = vars[a_start + t - 1];
 
-      fg[x_start + i + 2] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
-      fg[y_start + i + 2] = y1 = (y1 + v0 * CppAD::sin(psi0) * dt);
-      fg[psi_start + i + 2] = psi1 - (psi0 + v0 * delta0 / Lf * dt);
-      fg[v_start + i + 2] = v1 - (v0 + a0 * dt);
+      fg[x_start + t + 1] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
+      fg[y_start + t + 1] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
+      fg[psi_start + t + 1] = psi1 - (psi0 + v0 * delta0 / Lf * dt);
+      fg[v_start + t + 1] = v1 - (v0 + a0 * dt);
 
-      // TODO(Olala): How many dimension are the coeffs?
-      AD<double> f0 = coeffs[0] + coeffs[1] * x0 + coeffs[2] * x0 * x0;
-      fg[cte_start + i + 2] =
-          cte1 - ((f0 - y0) + v0 * CppAD::sin(epsi0) * dt);
+      AD<double> f0 = coeffs[0] + coeffs[1] * x0 + coeffs[2] * CppAD::pow(x0, 2)
+          + x0 + coeffs[3] * CppAD::pow(x0, 3);
+      fg[cte_start + t + 1] =
+          cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * dt));
 
-      // TODO(Olala): how much is the tengent?
-      AD<double> psides0 = CppAD::atan(coeffs[1] + 2 * coeffs[2]);
-      fg[epsi_start + i + 2] =
+      AD<double> psides0 = CppAD::atan(coeffs[1] + 2 * coeffs[2] + 3 * coeffs[3]);
+      fg[epsi_start + t + 1] =
           epsi1 - ((epsi0 - psides0) + v0 * delta0 / Lf * dt);
 
     }
@@ -141,8 +140,8 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
   // Set the number of model variables (includes both states and inputs).
   // (x, y, psi, v, cte, e_psi), (delta, a)
-  size_t n_vars = N * 6 + (N - 1) * 2;
   // TODO: Set the number of constraints
+  size_t n_vars = N * 6 + (N - 1) * 2;
   size_t n_constraints = N * 6;
 
   // Initial value of the independent variables.
@@ -169,20 +168,16 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
     vars_upperbound[i] = 1.0e19;
   }
 
-  double delta_range = 25.0 * 180.0 * 3.1415926;
   for (i = delta_start; i < a_start; i++) {
-    vars_lowerbound[i] = - delta_range;
-    vars_upperbound[i] = delta_range;
+    vars_lowerbound[i] = -0.436332;
+    vars_upperbound[i] = 0.436332;
   }
 
   // Set acceleration limit
-  double acceleration_range = 1.0;
   for (i = a_start; i < n_vars; i++) {
-    vars_lowerbound[i] = -acceleration_range;
-    vars_upperbound[i] = acceleration_range;
+    vars_lowerbound[i] = -1.0;
+    vars_upperbound[i] = 1.0;
   }
-
-  // TODO: Set lower and upper limits for variables.
 
   // Lower and upper limits for the constraints
   // Should be 0 besides initial state.
@@ -242,15 +237,22 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
   // Cost
   auto cost = solution.obj_value;
+  std::cout << "Cost:" << cost << std::endl;
 
   // TODO: Return the first actuator values. The variables can be accessed with
   // `solution.x[i]`.
   //
   // {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
   // creates a 2 element double vector.
+  vector<double> result;
+  result.push_back(solution.x[delta_start]);
+  result.push_back(solution.x[a_start]);
 
-  return {0.0, 1.0};
-  // return {
-  //   solution.x[delta_start], solution.x[a_start]
-  // };
+  for (size_t i = 0; i < N-1; i++) {
+    result.push_back(solution.x[x_start + i]);
+    result.push_back(solution.x[y_start + i]);
+  }
+
+  return result;
+
 }
