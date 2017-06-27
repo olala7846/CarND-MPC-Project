@@ -172,9 +172,11 @@ int main() {
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
 
+          double predict_x = v * latency;
+          double predict_y = 0;
           for (size_t i = 2; i < solution.size(); i+=2) {
-            mpc_x_vals.push_back(solution[i]);
-            mpc_y_vals.push_back(solution[i+1]);
+            mpc_x_vals.push_back(solution[i] + predict_x);
+            mpc_y_vals.push_back(solution[i+1] + predict_y);
           }
 
           msgJson["mpc_x"] = mpc_x_vals;
