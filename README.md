@@ -69,5 +69,8 @@ This repo has been modified by olala7846@gmail.com, for the original repo, pleas
 * Although theoretically we want T to be as large as possible, but since we only fits the track by 6 points with a degree=3 polynomial and normally the environments change too much during time for our car to predict, it doesn't make sense to have a very large T.
 * We normally want `dt` to be as small as possible, but the cumputational time increases as `dt` decreases and `N` increases. So after some trial and error, I ended up picking a `T = 1.5 seconds` where `dt=0.08 (sec)` and `N=15 (steps)`.
 
+### The Results
+
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/4mmgDeJEQNA/0.jpg)](https://www.youtube.com/watch?v=4mmgDeJEQNA)
 
 
